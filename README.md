@@ -1,4 +1,10 @@
 ## Description
+the original tensorflow code is: https://github.com/AITTSMD/MTCNN-Tensorflow
+## modify
+ I have changed the files  used to prepare training datas. Detatils  please reading code.
+ 1. The face detection training process is recorded in "./prepare_data/run.sh"
+ 2. The pedestrian detection training process is recorded in "prepare_data/gen12_run.sh"(Maybe has something mistake in first lines)
+##
 This work is used for reproduce MTCNN,a Joint Face Detection and Alignment using Multi-task Cascaded Convolutional Networks.
 
 ## Prerequisites
@@ -44,6 +50,7 @@ This work is used for reproduce MTCNN,a Joint Face Detection and Alignment using
   For neg sample,cls_label=0,bbox_label=[0,0,0,0],landmark_label=[0,0,0,0,0,0,0,0,0,0].  
 
 * Since the training data for landmark is less.I use transform,random rotate and random flip to conduct data augment(the result of landmark detection is not that good).
+#######
 
 ## Result
 
