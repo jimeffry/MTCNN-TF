@@ -28,6 +28,8 @@ def args():
                         help='negtive images annotion file ')
     parser.add_argument('--part_txt',type=str,default="part_12.txt",\
                         help='part images annotion file ')
+    parser.add_argument('--img_size',type=int,default=12,\
+                        help='saved image size  ')
     return parser.parse_args()
 
 def rd_anotation(annotation,im_dir):
@@ -53,7 +55,7 @@ def gen_neg_data(img,boxes_gd,height,width,neg_save_dir,ng_id,f2,neg_hold=50,img
     n_idx = ng_id
     while neg_num < neg_hold:
         #neg_num's size [40,min(width, height) / 2],min_size:40 
-        size_h = npr.randint(12, min(width, height) / 2)
+        size_h = npr.randint(40, min(width, height) / 2)
         size_w = np.int(size_h/2)
         #top_left
         nx = npr.randint(0, width - size_w)
@@ -61,8 +63,8 @@ def gen_neg_data(img,boxes_gd,height,width,neg_save_dir,ng_id,f2,neg_hold=50,img
         #random crop
         crop_box = np.array([nx, ny, nx + size_w, ny + size_h])
         #cal iou
-        #Iou = IoU(crop_box, boxes_gd)
-        Iou = IoU_self(crop_box, boxes_gd)
+        Iou = IoU(crop_box, boxes_gd)
+        #Iou = IoU_self(crop_box, boxes_gd)
             
         cropped_im = img[ny : ny + size_h, nx : nx + size_w, :]
         resized_im = cv2.resize(cropped_im, (img_size, img_size), interpolation=cv2.INTER_LINEAR)
@@ -81,9 +83,11 @@ def gen_pneg_data(img,boxes_gd,top_point,neg_save_dir,ng_id,f2,pneg_hold=5,img_s
     n_idx = ng_id
     x1,y1,h,w,height,width,_,_ = top_point
     for i in range(pneg_hold):
+        #print("h, ",h,width,height)
         #size_h = npr.randint(int(h), min(width, height) / 2)
         size_h = npr.randint(int(h/2), int(h))
         size_w = npr.randint(int(w/2), int(w))
+        #size_w = size_h/2
         # delta_x and delta_y are offsets of (x1, y1)
         delta_x = npr.randint(max(-size_w, -x1), w)
         delta_y = npr.randint(max(-size_h, -y1), h)
@@ -116,7 +120,8 @@ def gen_pos_part_data(img,boxes_gd,top_point,pos_save_dir,part_save_dir,p_id,d_i
         #size_h = int(h)
         #size_w = int(w) 
         #print("h ",size_h)
-        size_w = npr.randint(int(w * 0.8), np.ceil(1.2 *w))
+        size_w = npr.randint(int(w), np.ceil(1.2 *w))
+        #size_w = size_h/2
         # delta here is the offset of box center
         delta_x = npr.randint(-w * 0.2, w * 0.2)
         #delta_y = npr.randint(-h * 0.2, h * 0.2)
@@ -142,12 +147,14 @@ def gen_pos_part_data(img,boxes_gd,top_point,pos_save_dir,part_save_dir,p_id,d_i
         box_ = boxes_gd.reshape(1, -1)
         #print(crop_box,box_)
         #print("IOU",IoU(crop_box, box_))
-        if IoU(crop_box, box_) >= piou and delta_y<=0:
+        #if IoU(crop_box, box_) >= piou and delta_y<=0:
+        if IoU(crop_box, box_) >= piou :
             save_file = os.path.join(pos_save_dir, "%s.jpg"%p_idx)
             f1.write(save_file + ' 1 %.2f %.2f %.2f %.2f\n'%(offset_x1, offset_y1, offset_x2, offset_y2))
             cv2.imwrite(save_file, resized_im)
             p_idx += 1
-        elif IoU(crop_box, box_) <= paiou and delta_y>0:
+        #elif IoU(crop_box, box_) <= paiou and delta_y>0:
+        elif IoU(crop_box, box_) <= paiou and IoU(crop_box, box_) >0.2:
             save_file = os.path.join(part_save_dir, "%s.jpg"%d_idx)
             f3.write(save_file + ' -1 %.2f %.2f %.2f %.2f\n'%(offset_x1, offset_y1, offset_x2, offset_y2))
             cv2.imwrite(save_file, resized_im)
@@ -155,24 +162,17 @@ def gen_pos_part_data(img,boxes_gd,top_point,pos_save_dir,part_save_dir,p_id,d_i
     return p_idx,d_idx
 
 
-def gen_pnet_data(img_num,Iou_thresh,img_size=12):
+def gen_pnet_data(img_num,Iou_thresh):
     neg_hold,pneg_hold,pos_hold = img_num
     neg_iou,piou,paiou = Iou_thresh
     parm = args()
-    '''
-    anno_file = "wider_face_train.txt"
-    im_dir = "WIDER_train/images"
-    pos_save_dir = "12/positive"
-    part_save_dir = "12/part"
-    neg_save_dir = '12/negative'
-    save_dir = "./12"
-    '''
     anno_file = parm.anno_file
     im_dir = parm.img_dir
     pos_save_dir = parm.pos_save_dir
     part_save_dir = parm.part_save_dir
     neg_save_dir = parm.neg_save_dir
     save_dir = parm.save_dir
+    img_size = parm.img_size
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
     if not os.path.exists(pos_save_dir):
@@ -196,52 +196,11 @@ def gen_pnet_data(img_num,Iou_thresh,img_size=12):
     pass_cnt =0
     cnt_pos_neg =0
     for annotation in annotations:
-        '''
-        annotation = annotation.strip().split(' ')
-        #image path
-        im_path = annotation[0]
-        #boxed change to float type
-        bbox = map(float, annotation[1:])
-        #gt
-        boxes = np.array(bbox, dtype=np.float32).reshape(-1, 4)
-        #load image
-        img = cv2.imread(os.path.join(im_dir, iy >0m_path + '.jpg'))
-        idx += 1
-        if idx % 100 == 0:
-            print idx, "images done"
-            
-        height, width, channel = img.shape
-        '''
         img,boxes_gd,height,width = rd_anotation(annotation,im_dir)
         idx += 1
         if idx % 100 == 0:
             print(idx, "images done")
-        '''
-        neg_num = 0
-        #1---->50
-        while neg_num < 50:
-            #neg_num's size [40,min(width, height) / 2],min_size:40 
-            size = npr.randint(12, min(width, height) / 2)
-            #top_left
-            nx = npr.randint(0, width - size)
-            ny = npr.randint(0, height - size)
-            #random crop
-            crop_box = np.array([nx, ny, nx + size, ny + size])
-            #cal iou
-            Iou = IoU(crop_box, boxes)
-            
-            cropped_im = img[ny : ny + size, nx : nx + size, :]
-            resized_im = cv2.resize(cropped_im, (12, 12), interpolation=cv2.INTER_LINEAR)
-
-            if np.max(Iou) < 0.3:
-                # Iou with all gts must below 0.3
-                save_file = os.path.join(neg_save_dir, "%s.jpg"%n_idx)
-                f2.write("12/negative/%s.jpg"%n_idx + ' 0\n')
-                cv2.imwrite(save_file, resized_im)
-                n_idx += 1
-                neg_num += 1
-        '''
-        ng_id = gen_neg_data(img,boxes_gd,height,width,neg_save_dir,n_idx,f2,neg_hold=neg_hold,neg_iou=neg_iou)
+        ng_id = gen_neg_data(img,boxes_gd,height,width,neg_save_dir,n_idx,f2,neg_hold=neg_hold,neg_iou=neg_iou,img_size=img_size)
         n_idx = ng_id
         #as for 正 part样本
         for box in boxes_gd:
@@ -258,74 +217,11 @@ def gen_pnet_data(img_num,Iou_thresh,img_size=12):
                 pass_cnt+=1
                 continue
             top_point = [x1,y1,h,w,height,width,x2,y2]
-            '''
-            for i in range(5):
-                size = npr.randint(12, min(width, height) / 2)
-                # delta_x and delta_y are offsets of (x1, y1)
-                delta_x = npr.randint(max(-size, -x1), w)
-                delta_y = npr.randint(max(-size, -y1), h)
-                nx1 = int(max(0, x1 + delta_x))
-                ny1 = int(max(0, y1 + delta_y))
-                if nx1 + size > width or ny1 + size > height:
-                    continue
-                crop_box = np.array([nx1, ny1, nx1 + size, ny1 + size])
-                Iou = IoU(crop_box, boxes)
-        
-                cropped_im = img[ny1: ny1 + size, nx1: nx1 + size, :]
-                resized_im = cv2.resize(cropped_im, (12, 12), interpolation=cv2.INTER_LINEAR)
-        
-                if np.max(Iou) < 0.3:
-                    # Iou with all gts must below 0.3
-                    save_file = os.path.join(neg_save_dir, "%s.jpg" % n_idx)
-                    f2.write("12/negative/%s.jpg" % n_idx + ' 0\n')
-                    cv2.imwrite(save_file, resized_im)
-                    n_idx += 1 
-            '''
-            pneg_id = gen_pneg_data(img,boxes_gd,top_point,neg_save_dir,n_idx,f2,pneg_hold=pneg_hold,neg_iou=neg_iou)
+            pneg_id = gen_pneg_data(img,boxes_gd,top_point,neg_save_dir,n_idx,f2,pneg_hold=pneg_hold,neg_iou=neg_iou,img_size=img_size)
             cnt_pos_neg +=(pneg_id-n_idx)
             n_idx = pneg_id       
         # generate positive examples and part faces
-            '''
-            for i in range(20):
-                # pos and part face size [minsize*0.8,maxsize*1.25]
-                size = npr.randint(int(min(w, h) * 0.8), np.ceil(1.25 * max(w, h)))
-
-                # delta here is the offset of box center
-                delta_x = npr.randint(-w * 0.2, w * 0.2)
-                delta_y = npr.randint(-h * 0.2, h * 0.2)
-                #show this way: nx1 = max(x1+w/2-size/2+delta_x)
-                nx1 = int(max(x1 + w / 2 + delta_x - size / 2, 0))
-                #show this way: ny1 = max(y1+h/2-size/2+delta_y)
-                ny1 = int(max(y1 + h / 2 + delta_y - size / 2, 0))
-                nx2 = nx1 + size
-                ny2 = ny1 + size
-
-                if nx2 > width or ny2 > height:
-                    continue 
-                crop_box = np.array([nx1, ny1, nx2, ny2])
-                #yu gt de offset
-                offset_x1 = (x1 - nx1) / float(size)
-                offset_y1 = (y1 - ny1) / float(size)
-                offset_x2 = (x2 - nx2) / float(size)
-                offset_y2 = (y2 - ny2) / float(size)
-                #crop
-                cropped_im = img[ny1 : ny2, nx1 : nx2, :]
-                #resize
-                resized_im = cv2.resize(cropped_im, (12, 12), interpolation=cv2.INTER_LINEAR)
-
-                box_ = box.reshape(1, -1)
-                if IoU(crop_box, box_) >= 0.65:
-                    save_file = os.path.join(pos_save_dir, "%s.jpg"%p_idx)
-                    f1.write("12/positive/%s.jpg"%p_idx + ' 1 %.2f %.2f %.2f %.2f\n'%(offset_x1, offset_y1, offset_x2, offset_y2))
-                    cv2.imwrite(save_file, resized_im)
-                    p_idx += 1
-                elif IoU(crop_box, box_) >= 0.4:
-                    save_file = os.path.join(part_save_dir, "%s.jpg"%d_idx)
-                    f3.write("12/part/%s.jpg"%d_idx + ' -1 %.2f %.2f %.2f %.2f\n'%(offset_x1, offset_y1, offset_x2, offset_y2))
-                    cv2.imwrite(save_file, resized_im)
-                    d_idx += 1
-            '''
-            pos_id,par_id = gen_pos_part_data(img,box,top_point,pos_save_dir,part_save_dir,p_idx,d_idx,f1,f3,pos_hold=pos_hold,piou=piou,paiou=paiou)
+            pos_id,par_id = gen_pos_part_data(img,box,top_point,pos_save_dir,part_save_dir,p_idx,d_idx,f1,f3,pos_hold=pos_hold,piou=piou,paiou=paiou,img_size=img_size)
             p_idx,d_idx = [pos_id,par_id]
             box_idx += 1
         print "%s images done, pos: %s part: %s neg: %s, pass: %s, pn: %s"%(idx, p_idx, d_idx, n_idx,pass_cnt,cnt_pos_neg)
@@ -337,5 +233,5 @@ if __name__=='__main__':
     #neg_hold,pneg_hold,pos_hold
     img_num = [50,5,20]
     #neg_iou,piou,paiou
-    Iou_thresh = [0.3,0.7,0.5]
+    Iou_thresh = [0.2,0.7,0.4]
     gen_pnet_data(img_num,Iou_thresh)
