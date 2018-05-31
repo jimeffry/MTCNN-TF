@@ -146,25 +146,24 @@ def P_Net(inputs,label=None,bbox_target=None,landmark_target=None,training=True)
         #print ("Pnet input shape",inputs.get_shape())
         #net = slim.conv2d(inputs, 10, 3, stride=1,scope='conv1')
         net = slim.conv2d(inputs, 8, 3, stride=1,scope='conv1')
-        #print ("conv1 shape ",net.get_shape())
+        print_shape('PNet','conv1',net)
         net = slim.max_pool2d(net, kernel_size=[2,2], stride=2, scope='pool1', padding='SAME')
-        #print ("pool1 shape ",net.get_shape())
+        print_shape('PNet','pool1',net)
         net = slim.conv2d(net,num_outputs=16,kernel_size=[3,3],stride=1,scope='conv2')
-        #print ("conv2 shape ",net.get_shape())
+        print_shape('PNet','conv2',net)
         net = slim.conv2d(net,num_outputs=32,kernel_size=[3,3],stride=1,scope='conv3')
-        #print ("conv3 shape ",net.get_shape())
+        print_shape('PNet','conv3',net)
         #batch*H*W*2
         conv4_1 = slim.conv2d(net,num_outputs=2,kernel_size=[1,1],stride=1,scope='conv4_1',activation_fn=tf.nn.softmax)
         #conv4_1 = slim.conv2d(net,num_outputs=1,kernel_size=[1,1],stride=1,scope='conv4_1',activation_fn=tf.nn.sigmoid)
-
-        #print ("cls shape ",conv4_1.get_shape())
+        print_shape('PNet',"cls shape ",conv4_1)
         #batch*H*W*4
         bbox_pred = slim.conv2d(net,num_outputs=4,kernel_size=[1,1],stride=1,scope='conv4_2',activation_fn=None)
-        #print ("bbox shape ",bbox_pred.get_shape())
+        print_shape('PNet',"bbox shape ",bbox_pred)
         #batch*H*W*10
         if p_landmark:
             landmark_pred = slim.conv2d(net,num_outputs=10,kernel_size=[1,1],stride=1,scope='conv4_3',activation_fn=None)
-            #print ("landmark shape ",landmark_pred.get_shape())
+            print_shape('PNet',"landmark shape ",landmark_pred)
         #cls_prob_original = conv4_1
         #bbox_pred_original = bbox_pred
         if training:
@@ -194,53 +193,71 @@ def P_Net(inputs,label=None,bbox_target=None,landmark_target=None,training=True)
                 return cls_pro_test,bbox_pred_test,landmark_pred_test
             else:           
                 return cls_pro_test,bbox_pred_test
-'''
-def P_Net(inputs,label=None,bbox_target=None,training=True):
-    #define common param
+
+def P_Net_W(inputs,label=None,bbox_target=None,landmark_target=None,training=True):
     with slim.arg_scope([slim.conv2d],
-                        activation_fn=prelu,
+                        activation_fn = prelu,
                         weights_initializer=slim.xavier_initializer(),
                         biases_initializer=tf.zeros_initializer(),
                         weights_regularizer=slim.l2_regularizer(0.0005),
                         padding='valid'):
-        print ("Pnet input shape",inputs.get_shape())
-        #net = slim.conv2d(inputs, 10, 3, stride=1,scope='conv1')
-        net = slim.conv2d(inputs, 8, 3, stride=1,scope='conv1')
-        print ("conv1 shape ",net.get_shape())
-        net = slim.max_pool2d(net, kernel_size=[2,2], stride=2, scope='pool1', padding='SAME')
-        print ("pool1 shape ",net.get_shape())
-        net = slim.conv2d(net,num_outputs=16,kernel_size=[3,3],stride=1,scope='conv2')
-        print ("conv2 shape ",net.get_shape())
-        net = slim.conv2d(net,num_outputs=32,kernel_size=[3,3],stride=1,scope='conv3')
-        print ("conv3 shape ",net.get_shape())
-        #batch*H*W*2
-        conv4_1 = slim.conv2d(net,num_outputs=2,kernel_size=[1,1],stride=1,scope='conv4_1',activation_fn=tf.nn.softmax)
+        #print_shape('ONet','input',inputs)
+        net = slim.conv2d(inputs, num_outputs=32, kernel_size=[3,3], stride=1, scope="conv1")
+        print_shape('PNet','conv1',net)
+        net = slim.max_pool2d(net, kernel_size=[3, 3], stride=2, scope="pool1", padding='SAME')
+        print_shape('PNet','pool1',net)
+        net = slim.conv2d(net,num_outputs=64,kernel_size=[3,3],stride=1,scope="conv2")
+        print_shape('PNet','conv2',net)
+        net = slim.max_pool2d(net, kernel_size=[3, 3], stride=2, scope="pool2",padding='SAME')
+        print_shape('PNet','pool2',net)
+        net = slim.conv2d(net,num_outputs=128,kernel_size=[3,3],stride=1,scope="conv3")
+        print_shape('PNet','conv3',net)
+        net = slim.max_pool2d(net, kernel_size=[3, 3], stride=2, scope="pool3", padding='SAME')
+        print_shape('PNet','pool3',net)
+        net = slim.conv2d(net,num_outputs=256,kernel_size=[3,3],stride=1,scope="conv4")
+        print_shape('PNet','conv4',net)
+        net = slim.conv2d(net,num_outputs=512,kernel_size=[3,3],stride=1,scope="conv5")
+        print_shape('PNet','conv5',net)
+        conv6_1 = slim.conv2d(net,num_outputs=2,kernel_size=[1,1],stride=1,scope='conv6_1',activation_fn=tf.nn.softmax)
         #conv4_1 = slim.conv2d(net,num_outputs=1,kernel_size=[1,1],stride=1,scope='conv4_1',activation_fn=tf.nn.sigmoid)
 
-        print ("cls shape ",conv4_1.get_shape())
+        #print ("cls shape ",conv4_1.get_shape())
         #batch*H*W*4
-        bbox_pred = slim.conv2d(net,num_outputs=4,kernel_size=[1,1],stride=1,scope='conv4_2',activation_fn=None)
-        print ("bbox shape ",bbox_pred.get_shape())
+        bbox_pred = slim.conv2d(net,num_outputs=4,kernel_size=[1,1],stride=1,scope='conv6_2',activation_fn=None)
+        #print ("bbox shape ",bbox_pred.get_shape())
+        #batch*H*W*10
+        if p_landmark:
+            landmark_pred = slim.conv2d(net,num_outputs=10,kernel_size=[1,1],stride=1,scope='conv6_3',activation_fn=None)
+            #print ("landmark shape ",landmark_pred.get_shape())
         #cls_prob_original = conv4_1
         #bbox_pred_original = bbox_pred
         if training:
             #batch*2
-            cls_prob = tf.squeeze(conv4_1,[1,2],name='cls_prob')
+            cls_prob = tf.squeeze(conv6_1,[1,2],name='cls_prob')
             cls_loss = cls_ohem(cls_prob,label)
             #batch
             bbox_pred = tf.squeeze(bbox_pred,[1,2],name='bbox_pred')
             bbox_loss = bbox_ohem(bbox_pred,bbox_target,label)
             #batch*10
-            landmark_loss = 0
+            if p_landmark:
+                landmark_pred = tf.squeeze(landmark_pred,[1,2],name="landmark_pred")
+                landmark_loss = landmark_ohem(landmark_pred,landmark_target,label)
+            else:
+                landmark_loss = 0
             accuracy = cal_accuracy(cls_prob,label)
             #L2_loss = tf.add_n(slim.losses.get_regularization_losses())
             L2_loss = tf.add_n(tf.losses.get_regularization_losses())
             return cls_loss,bbox_loss,landmark_loss,L2_loss,accuracy
         #test
         else:
-            #when test,batch_size = 1        
-            return cls_pro_test,bbox_pred_test
-'''
+            #when test,batch_size = 1
+            cls_pro_test = tf.squeeze(conv6_1, axis=0)
+            bbox_pred_test = tf.squeeze(bbox_pred,axis=0)
+            if p_landmark:
+                landmark_pred_test = tf.squeeze(landmark_pred,axis=0)
+                return cls_pro_test,bbox_pred_test,landmark_pred_test
+            else:           
+                return cls_pro_test,bbox_pred_test
 
 def R_Net(inputs,label=None,bbox_target=None,landmark_target=None,training=True):
     with slim.arg_scope([slim.conv2d],

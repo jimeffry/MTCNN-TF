@@ -23,13 +23,10 @@ class MtcnnDetector(object):
         self.thresh = threshold
         self.train_face = config.train_face
         self.train_mode = config.train_mode
-        if self.train_face:
-            if self.train_mode ==1:
-                self.nms_thresh = [0.5,0.6,0.6]
-            else:
-                self.nms_thresh = [0.3,0.3,0.3]
-        else:
+        if self.train_mode ==1:
             self.nms_thresh = [0.5,0.6,0.6]
+        else:
+            self.nms_thresh = [0.3,0.3,0.3]
         self.scale_factor = scale_factor
         self.r_out = config.r_out        
 
@@ -302,7 +299,7 @@ class MtcnnDetector(object):
                              all_boxes[:, 4]])
         boxes_c = boxes_c.T
 
-        return  boxes_c,all_boxes
+        return  boxes_c,None
     def detect_rnet(self, im, dets):
         """Get face candidates using rnet
 
@@ -325,8 +322,8 @@ class MtcnnDetector(object):
         if self.train_face:
             dets = self.convert_to_square(dets)
         else:
-            #dets = self.convert_to_rect(dets)
-            dets = dets
+            dets = self.convert_to_rect(dets)
+            #dets = dets
         dets[:, 0:4] = np.round(dets[:, 0:4])
 
         [dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph] = self.pad(dets, w, h)
@@ -468,6 +465,10 @@ class MtcnnDetector(object):
             sel_num = config.P_Num if len(boxes_c) > config.P_Num else len(boxes_c)
             boxes_c = boxes_c[order_idx[:sel_num]]
             boxes_p = boxes_c
+            if config.pnet_out:
+                print("time cost " + '{:.3f}'.format(t1 ) + '  pnet {:.3f} '.format(t1))
+                boxes_c = self.convert_to_rect(boxes_c)
+                return boxes_c,None
     
         # rnet
         '''
@@ -535,9 +536,14 @@ class MtcnnDetector(object):
                     landmarks.append(np.array([]))
                     batch_idx += 1
                     continue
-                order_idx = np.argsort(boxes_c[:,4])[:-1]
-                sel_num = config.P_Num if len(boxes_c) > config.P_Num else len(boxes_c)
-                boxes_c = boxes_c[order_idx[:sel_num]]
+                if not self.rnet_detector:
+                    if self.train_face:
+                        boxes_c = self.convert_to_square(boxes_c)
+                    else:
+                        boxes_c = self.convert_to_rect(boxes_c)
+                #order_idx = np.argsort(boxes_c[:,4])[:-1]
+                #sel_num = config.P_Num if len(boxes_c) > config.P_Num else len(boxes_c)
+                #boxes_c = boxes_c[order_idx[:sel_num]]
             # rnet
             t2 = 0
             if self.rnet_detector:

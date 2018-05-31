@@ -213,7 +213,7 @@ def gen_pnet_data(img_num,Iou_thresh):
 
             # ignore small faces
             # in case the ground truth boxes of small faces are not accurate
-            if min(w, h) < 4 or x1 < 0 or y1 < 0:
+            if min(w, h) < 25 or x1 < 0 or y1 < 0:
                 pass_cnt+=1
                 continue
             top_point = [x1,y1,h,w,height,width,x2,y2]

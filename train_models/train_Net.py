@@ -1,8 +1,9 @@
 #coding:utf-8
-from mtcnn_model import O_Net,P_Net,R_Net
+from mtcnn_model import O_Net,P_Net,R_Net,P_Net_W
 from train import train
 import argparse
 import os
+from MTCNN_config import config
 
 
 def args():
@@ -34,7 +35,10 @@ def train_ONet(base_dir, prefix, load_epoch,end_epoch, display, lr,train_net):
     :return:
     """
     if train_net == "PNet":
-        net_factory = P_Net
+        if config.train_face:
+            net_factory = P_Net
+        else:
+            net_factory = P_Net_W
     elif train_net == "RNet":
         net_factory = R_Net
     else:
