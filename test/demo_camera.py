@@ -17,7 +17,7 @@ sys.path.append('..')
 from Detection.detector import Detector
 from Detection.fcn_detector import FcnDetector
 from Detection.MtcnnDetector import MtcnnDetector
-from train_models.mtcnn_model import P_Net,R_Net,O_Net
+from train_models.mtcnn_model import P_Net,R_Net,O_Net,P_Net_W
 import cv2
 import argparse
 from train_models.MTCNN_config import config
@@ -28,13 +28,13 @@ def parameter():
     parser = argparse.ArgumentParser(description='Mtcnn camera test')
     parser.add_argument("--min_size",type=int,default=24,\
                         help='determin the image pyramid and the lest is 12')
-    parser.add_argument("--threshold",type=float,default=[0.7,0.99,0.8],nargs="+",\
+    parser.add_argument("--threshold",type=float,default=[0.7,0.7,0.8],nargs="+",\
                         help='filter the proposals according to score')
     parser.add_argument("--slid_window",type=bool,default=False,\
                         help='if true Pnet will use slid_window to produce proposals')
     parser.add_argument('--batch_size',type=int,default=[1,256,128],nargs="+",\
                         help='determin the pnet rnet onet input batch_size')
-    parser.add_argument('--epoch_load',type=int,default=[10,2300,60],nargs="+",\
+    parser.add_argument('--epoch_load',type=int,default=[32,4400,25],nargs="+",\
                         help='load the saved paramters for pnet rnet onet')
     parser.add_argument('--file_in',type=str,default='None',\
                         help='input file')
@@ -43,7 +43,7 @@ def parameter():
 def load_model(epoch_load):
     if test_relu==5 or test_relu==100:
         if config.rnet_wide:
-            #5,500,60;  5,1700,60; 10,800,60; 10,2300,60; 1700,2300,60
+            #5,500,60;  5,1700,60; 10,800,60; 10,2300,60; 1700,2300,60; (best: 10,2300,60)
             prefix = ["../data/MTCNN_model/PNet_landmark/PNet", "../data/MTCNN_model/RNet_landmark/rnet_wide/RNet", "../data/MTCNN_model/ONet_landmark/ONet"]
         else:
             # 5,40,60; 5,1200,60; 10,1400,60; 10,5200,60
@@ -54,13 +54,15 @@ def load_model(epoch_load):
             prefix = ["../data/MTCNN_model/PNet_landmark/PNet", "../data/MTCNN_model/RNet_landmark/rnet_wide/RNet", "../data/MTCNN_model/ONet_landmark/v1_trained/ONet"]
         else:
             #epoch_load = [32,30,25],[32,4400,25]
-            prefix = ["../data/MTCNN_model/PNet_landmark/v1_trained/PNet", "../data/MTCNN_model/RNet_landmark/v1_trained/RNet", "../data/MTCNN_model/ONet_landmark/v1_trained/ONet"]
+            #prefix = ["../data/MTCNN_model/PNet_landmark/v1_trained/PNet", "../data/MTCNN_model/RNet_landmark/v1_trained/RNet", "../data/MTCNN_model/ONet_landmark/v1_trained/ONet"]
             #[205,500,200]
             #prefix = ["../data/MTCNN_bright_model/PNet_landmark/PNet", "../data/MTCNN_bright_model/RNet_landmark/RNet", "../data/MTCNN_bright_model/ONet_landmark/ONet"]
             #pedestrain [80,360,200],[580,4900,600],[1600,4500,600],[1600,2900,4000]
             #prefix = ["../data/MTCNN_caltech_model/PNet_landmark/PNet", "../data/MTCNN_caltech_model/RNet_landmark/RNet", "../data/MTCNN_caltech_model/ONet_landmark/ONet"]
             #person voc[1600,2900,300]
             #prefix = ["../data/MTCNN_voc_model/PNet_landmark/PNet", "../data/MTCNN_voc_model/RNet_landmark/RNet", "../data/MTCNN_voc_model/ONet_landmark/ONet"]
+            #person market [1400,1600,]
+            prefix = ["../data/MTCNN_market_model/PNet_landmark/PNet","../data/MTCNN_market_model/RNet_landmark/RNet","../data/MTCNN_market_model/ONet_landmark/ONet"]
     print("demo epoch load ",epoch_load)
     model_path = ["%s-%s" %(x,y ) for x, y in zip(prefix,epoch_load)]
     print("demo model path ",model_path)
@@ -80,15 +82,16 @@ def process_img():
     #load paramter path
     model_path = load_model(epoch_load)
     #load net result
-    if slid_window:
-        print("using slid window")
-        Pnet_det = None
-        return [None,None,None]
-    else:
+    if config.train_face:
         Pnet_det = FcnDetector(P_Net,model_path[0])
+    else:
+        Pnet_det = FcnDetector(P_Net_W,model_path[0])
     Rnet_det = Detector(R_Net,data_size=24,batch_size=batch_size[1],model_path=model_path[1])
-    Onet_det = Detector(O_Net,data_size=48,batch_size=batch_size[2],model_path=model_path[2])
-    multi_detector = [Pnet_det,Rnet_det,Onet_det]
+    if len(model_path)==3:
+        Onet_det = Detector(O_Net,data_size=48,batch_size=batch_size[2],model_path=model_path[2])
+        multi_detector = [Pnet_det,Rnet_det,Onet_det]
+    else:
+        multi_detector = [Pnet_det,Rnet_det,None]
     #get bbox and landmark
     Mtcnn_detector = MtcnnDetector(multi_detector,min_size,threshold=score_threshold)
     #bboxs,bbox_clib,landmarks = Mtcnn_detector.detect(img)

@@ -4,6 +4,9 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
+import sys
+sys.path.append("../")
+from train_models.MTCNN_config import config
 #just for RNet and ONet, since I change the method of making tfrecord
 #as for PNet
 def read_single_tfrecord(tfrecord_file, batch_size, net):
@@ -23,7 +26,10 @@ def read_single_tfrecord(tfrecord_file, batch_size, net):
         }
     )
     if net == 'PNet':
-        image_size = 12
+        if config.train_face:
+            image_size = 12
+        else:
+            image_size = 48
     elif net == 'RNet':
         image_size = 24
     else:
